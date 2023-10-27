@@ -1,18 +1,23 @@
 <?php
-
 $_POST['action'];
-function init()
+
+function getPdo()
 {
+    $pdo = null;
     $hostname = "localhost";
     $dbname = "restaurant_arredo";
     $user = "root";
     $pass = "root";
-
     try {
         $pdo = new PDO("mysql:host=$hostname;dbname=$dbname", $user, $pass);
     } catch (PDOException $e) {
         die("Impossibile connettersi al server");
     };
+    return $pdo;
+}
+function init()
+{
+    $pdo = getPdo();
     $create_restaurant = "CREATE TABLE IF NOT EXISTS `restaurant`(
         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         `name` VARCHAR(40) NOT NULL,
@@ -40,8 +45,6 @@ function init()
         // var_dump($seeder_restaurant);
         $pdo->exec($populate_restaurant_table);
     }
-
-
     $create_vote_table = "CREATE TABLE IF NOT EXISTS `votes`(
         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
         `client_name` VARCHAR(40) NOT NULL,
@@ -81,7 +84,6 @@ function init()
     if (!count($pdo->query('SELECT * FROM prenotations')->fetchAll())) {
         $populate_prenotation_table = " INSERT INTO prenotations (client_name, prenotation_date, hour,n_people) VALUES ";
         $prenotation_data = fopen("prenotazioni.csv", "r");
-
         $index = 0;
         while (!feof($prenotation_data)) {
             $row  = fgetcsv($prenotation_data);
@@ -89,9 +91,6 @@ function init()
                 $row_collection = [];
 
                 for ($i = 0; $i < count($row); $i++) {
-
-
-
                     if ($i < count($row) - 1) {
                         array_push($row_collection, '"' . $row[$i] . '"');
                     } else {
@@ -108,35 +107,43 @@ function init()
         }
         var_dump($populate_prenotation_table);
         $pdo->exec($populate_prenotation_table);
-        
     }
 }
-function reservation () {
-$get_form = $_POST["client_name"];
 
+
+
+function reservation()
+{
+    $get_name = $_POST['client_name'];
+    $get_date = $_POST['prenotation'];
+    $get_hour = $_POST['hour'];
+    $get_number = $_POST['number'] ?? 0;
+    $prenotation_into_db = "INSERT INTO prenotations (client_name, prenotation_date, hour,n_people) VALUES ( '$get_name' , '$get_date' , '$get_hour' , $get_number);";
+    getPdo()->exec($prenotation_into_db);
 };
+function vote()
+{
+    $get_recens_name = $_POST['recens_name'];
+    $get_vote = $_POST['vote'];
+    $get_comment = $_POST['comment'];
+    $comment_into_db = "INSERT INTO votes(client_name, vote, comment) VALUES ( '$get_recens_name' , $get_vote , '$get_comment');";
+    getPdo()->exec($comment_into_db);
+}
 switch ($_POST["action"]) {
     case "init": {
             init();
             break;
         }
     case "reservation": {
-        reservation();
+            reservation();
             break;
         }
     case "vote": {
+            vote();
             break;
         }
 }
-
-
-
 ?>
-
-
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -154,10 +161,8 @@ switch ($_POST["action"]) {
                 <form action="index.php" method="POST">
                     <input type="hidden" name="action" value="init">
                     <button type="submit" class="btn mt-3 btn-primary">Init</button>
-
                 </form>
             </div>
-
         </div>
     </header>
     <main>
@@ -165,34 +170,42 @@ switch ($_POST["action"]) {
             <form action="index.php" method="POST">
                 <input type="hidden" name="action" value="reservation">
                 <div class="mb-3 mt-5">
-                    <label for="nome_cliente" class="form-label">Nome Cliente</label>
-                    <input type="text" class="form-control" id="nome_cliente" aria-describedby="emailHelp">
-                    <div id="nome_cliente" class="form-text">Grazie per questa informazione</div>
+                    <label for="client_name" class="form-label">Nome Cliente</label>
+                    <input type="text" class="form-control" id="client_name" name="client_name" aria-describedby="emailHelp" required>
+                    <div id="client_name" class="form-text">Grazie per questa informazione</div>
                 </div>
                 <div class="mb-5">
                     <label for="prenotation" class="form-label">Data Prenotazione</label>
-                    <input type="text" class="form-control" id="prenotation">
+                    <input type="text" class="form-control" name="prenotation" id="prenotation" required>
                 </div>
                 <div class="mb-5">
                     <label for="hour" class="form-label">Orario</label>
-                    <input type="number" class="form-control" id="hour">
+                    <input type="number" name="hour" class="form-control" id="hour" required>
                 </div>
                 <div class="mb-5">
-                    <label for="numero_persone" class="form-label">Numero Persone</label>
-                    <input type="number" class="form-control" id="numero_perswone">
+                    <label for="person_number" class="form-label">Numero Persone</label>
+                    <input type="number" name="number" class="form-control" id="person_number" required>
                 </div>
+                <button type="submit" class="btn mt-3 btn-primary">Submit</button>
             </form>
             <form action="index.php" method="POST">
                 <input type="hidden" name="action" value="vote">
+                <div class="mb-3 mt-5">
+                    <label for="recens_name" class="form-label">Nome Cliente</label>
+                    <input type="text" class="form-control" id="recens_name" name="recens_name" aria-describedby="emailHelp" required>
+                    <div id="recens_name" class="form-text">Grazie per questa informazione</div>
+                </div>
+                <div class="mb-5">
+                    <label for="vote" class="form-label">Voto</label>
+                    <input type="number" name="vote" class="form-control" id="vote" required>
+                </div>
                 <div class=" form-floating">
-                    <textarea class="form-control" placeholder="Leave a comment here" id="vote" style="height: 100px"></textarea>
+                    <textarea class="form-control" placeholder="Leave a comment here" id="vote" name="comment" style="height: 100px"></textarea>
                     <label for="vote">Lascia un commento</label>
                 </div>
                 <button type="submit" class="btn mt-3 btn-primary">Submit</button>
             </form>
-
         </div>
-
     </main>
 </body>
 
