@@ -1,20 +1,16 @@
-<?php 
+<?php
 
 $_POST['action'];
-
-
-
-
-function init() {
+function init()
+{
     $hostname = "localhost";
     $dbname = "restaurant_arredo";
     $user = "root";
     $pass = "root";
-   
+
     try {
         $pdo = new PDO("mysql:host=$hostname;dbname=$dbname", $user, $pass);
-        echo "connesso con successo";
-    } catch(PDOException $e) {
+    } catch (PDOException $e) {
         die("Impossibile connettersi al server");
     };
     $create_restaurant = "CREATE TABLE IF NOT EXISTS `restaurant`(
@@ -26,10 +22,11 @@ function init() {
         PRIMARY KEY(`id`))
         ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci;";
     $result = $pdo->exec($create_restaurant);
-    if($result) {
+    if ($result) {
         echo "Tabella creata";
     }
-    $populate_restaurant_table = "
+    if (!count($pdo->query('SELECT * FROM restaurant')->fetchAll())) {
+        $populate_restaurant_table = "
         INSERT INTO restaurant (name, address, phone, opening_time)
         VALUES ('Ristorante da Mario','Via Roma, 123','+39 123 456789','{\"lunedì\" : \"09:00 - 22:00\",
         \"martedì\" : \"09:00 - 22:00\",
@@ -40,8 +37,10 @@ function init() {
         \"domenica\" : \"10:00 - 21:00\"
         }')
         ";
-    // var_dump($seeder_restaurant);
-    $pdo->exec($populate_restaurant_table);
+        // var_dump($seeder_restaurant);
+        $pdo->exec($populate_restaurant_table);
+    }
+
 
     $create_vote_table = "CREATE TABLE IF NOT EXISTS `votes`(
         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -51,41 +50,83 @@ function init() {
         PRIMARY KEY(`id`))
         ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci;";
     $pdo->exec($create_vote_table);
-
-    $populate_vote_table = "
+    if (!count($pdo->query('SELECT * FROM votes')->fetchAll())) {
+        $populate_vote_table = "
         INSERT INTO votes (client_name, vote, comment)
         VALUES ";
-        
-     $pdo->exec($populate_vote_table);
-     $votes_data = file_get_contents("recensioni.json");
-     $votes_decoded = json_decode($votes_data);
 
-     foreach($votes_decoded->recensioni as $key => $vote) {
-        $populate_vote_table .= "($vote->nome_cliente, $vote->voto, $vote->commento)";
-        if($key !== array_key_last($votes_decoded->recensioni)) {
-            $populate_vote_table .= ", ";
+        $pdo->exec($populate_vote_table);
+        $votes_data = file_get_contents("recensioni.json");
+        $votes_decoded = json_decode($votes_data);
+
+        foreach ($votes_decoded->recensioni as $key => $vote) {
+
+            $populate_vote_table .= '("' . $vote->nome_cliente . '",' .  $vote->voto . ',"' . $vote->commento . '")';
+            if ($key !== array_key_last($votes_decoded->recensioni)) {
+                $populate_vote_table .= ", ";
+            }
         }
-     }
-     $populate_vote_table .= ";";
-     $pdo->exec($populate_vote_table);
-     
-     
+        $populate_vote_table .= ";";
+        $pdo->exec($populate_vote_table);
+    }
+    $create_prenotation_table = "CREATE TABLE IF NOT EXISTS `prenotations`(
+        `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+        `client_name` VARCHAR(60) NOT NULL,
+        `prenotation_date` VARCHAR(60) NOT NULL,
+        `hour` VARCHAR(20) NOT NULL,
+        `n_people` INT(11) NOT NULL,
+        PRIMARY KEY(`id`))
+        ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci;";
+    $pdo->exec($create_prenotation_table);
+    if (!count($pdo->query('SELECT * FROM prenotations')->fetchAll())) {
+        $populate_prenotation_table = " INSERT INTO prenotations (client_name, prenotation_date, hour,n_people) VALUES ";
+        $prenotation_data = fopen("prenotazioni.csv", "r");
 
-}
-switch ($_POST["action"]) {
-    case "init" : {
-        init();
-        break;
-    }
-    case "reservation" : {
-        break;
-    }
-    case "vote" : {
-        break;
-    }
+        $index = 0;
+        while (!feof($prenotation_data)) {
+            $row  = fgetcsv($prenotation_data);
+            if ($index !== 0) {
+                $row_collection = [];
 
+                for ($i = 0; $i < count($row); $i++) {
+
+
+
+                    if ($i < count($row) - 1) {
+                        array_push($row_collection, '"' . $row[$i] . '"');
+                    } else {
+                        array_push($row_collection, $row[$i]);
+                    }
+                }
+                $query_row = "(" . implode(",", $row_collection) . ")";
+                if (!feof($prenotation_data) == true) {
+                    $query_row .= ",";
+                }
+                $populate_prenotation_table .= $query_row;
+            }
+            $index++;
+        }
+        var_dump($populate_prenotation_table);
+        $pdo->exec($populate_prenotation_table);
         
-    
+    }
+}
+function reservation () {
+$get_form = $_POST["client_name"];
+
+};
+switch ($_POST["action"]) {
+    case "init": {
+            init();
+            break;
+        }
+    case "reservation": {
+        reservation();
+            break;
+        }
+    case "vote": {
+            break;
+        }
 }
 
 
@@ -98,29 +139,31 @@ switch ($_POST["action"]) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 </head>
+
 <body>
     <header>
-    <div class="container">
-        <div class="jumbotron">
-        <form action="index.php" method="POST">
-            <input type="hidden" name="action" value="init">
-        <button type="submit" class="btn mt-3 btn-primary">Init</button>
-        
-        </form>
+        <div class="container">
+            <div class="jumbotron">
+                <form action="index.php" method="POST">
+                    <input type="hidden" name="action" value="init">
+                    <button type="submit" class="btn mt-3 btn-primary">Init</button>
+
+                </form>
+            </div>
+
         </div>
-        
-    </div>
     </header>
     <main>
         <div class="container">
             <form action="index.php" method="POST">
-            <input type="hidden" name="action" value="reservation">
+                <input type="hidden" name="action" value="reservation">
                 <div class="mb-3 mt-5">
                     <label for="nome_cliente" class="form-label">Nome Cliente</label>
                     <input type="text" class="form-control" id="nome_cliente" aria-describedby="emailHelp">
@@ -140,16 +183,17 @@ switch ($_POST["action"]) {
                 </div>
             </form>
             <form action="index.php" method="POST">
-            <input type="hidden" name="action" value="vote">
-            <div class=" form-floating">
+                <input type="hidden" name="action" value="vote">
+                <div class=" form-floating">
                     <textarea class="form-control" placeholder="Leave a comment here" id="vote" style="height: 100px"></textarea>
                     <label for="vote">Lascia un commento</label>
                 </div>
                 <button type="submit" class="btn mt-3 btn-primary">Submit</button>
             </form>
-            
+
         </div>
 
     </main>
 </body>
+
 </html>
