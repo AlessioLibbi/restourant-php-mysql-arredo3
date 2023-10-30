@@ -1,6 +1,27 @@
 <?php
+
+$file = 'export.csv';
+
+if (($_POST)) {
+    $content = downloadFile();
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="'.basename($file).'"');
+    echo $content;
+    exit; 
+}
+
+
+
+
+
 // READING ACTION VALOR ///////////////////////////////////////////////////
 $_POST['action'];
+
+
+
+
+
 // FUNCTION FOR GETTING DATABASE ROOT ///////////////////////////////////////////////////////
 function getPdo()
 {
@@ -16,6 +37,27 @@ function getPdo()
     };
     return $pdo;
 }
+function downloadFile() {
+    
+    $pdo = getPdo();
+    
+    $tableToShow = "votes";
+    $queryToExport = "SELECT * FROM `$tableToShow`";
+    $toExport = $pdo->query($queryToExport);
+    $gotdata = $toExport->fetchAll(PDO::FETCH_NUM); 
+    $result = "";
+    $f = fopen('php://output', 'w+');
+
+    for($i = 0; $i < 10; $i++) {
+        $result .= implode(";" ,$gotdata[$i]) . "\n";
+        
+    }
+    return $result;
+    
+}
+downloadFile();
+
+
 // FUNCTION FOR CREATE FIRST TABLE AND POPULATE ///////////////////////////////////////////////////////
 function init()
 {
@@ -133,44 +175,66 @@ function vote()
     
 }
 //FUNCTION FOR WRITE ON DIFFERERNT FILE CSV /// JSON
-function getFile() {
 
 
+function getFile($dataType = "all") {
     // CSV STAMP ON FILE //////////////////////////////////////////////////////////////////////
-    $pdo = getPdo();
-    $tableToShow = "votes";
-    $filename = "export.csv";
-    $file = fopen($filename, "w+");
-    $queryToExport = "SELECT * FROM `$tableToShow`";
-    $toExport = $pdo->query($queryToExport);
-    $col = $toExport->columnCount();
-    $row = $toExport->rowCount();
     
-    $gotdata = $toExport->fetchAll();  
-    var_dump($gotdata);
-    $headerCSV = array('id', 'client_name', 'vote', 'comment');
-    fputcsv($file, $headerCSV);
-    for($i = 0 ; $i < $row; $i++) {
-        $smelted =array();
-       for($j = 0; $j < $col; $j++) {
-        $smelted[] = $gotdata[$i][$j];
-       }
-       fputcsv($file, $smelted);
-    }   
-
-
+    $pdo = getPdo();
+    function getReviews($paramsPdo) {
+        $tableToShow = "votes";
+        $filename = "export.csv";
+        $file = fopen($filename, "w+");
+        $queryToExport = "SELECT * FROM `$tableToShow`";
+        $toExport = $paramsPdo->query($queryToExport);
+        
+        $col = $toExport->columnCount();
+        $row = $toExport->rowCount();
+        
+        $gotdata = $toExport->fetchAll();  
+        
+        // var_dump($gotdata);
+        $headerCSV = array('id', 'client_name', 'vote', 'comment');
+        fputcsv($file, $headerCSV);
+        for($i = 0 ; $i < $row; $i++) {
+            $smelted =array();
+           for($j = 0; $j < $col; $j++) {
+            $smelted[] = $gotdata[$i][$j];
+           }
+           fputcsv($file, $smelted);
+        }   
+        fclose($filename);
+    }
+ 
+  
+    function getOrders($paramsPdo) {
+        $tableToShowJson = "prenotations";
+        $queryToExportJson = "SELECT * FROM `$tableToShowJson`";
+        $toExportJson = $paramsPdo->query($queryToExportJson);
+        $jsonArray = $toExportJson->fetchAll(PDO::FETCH_NUM);
+        $jsonname = "export.json";
+        file_put_contents($jsonname, json_encode($jsonArray));
+        
+    }
     //JSON STAMP ON FILE //////////////////////////////////////////////////////////////////
-    $tableToShowJson = "prenotations";
-    $queryToExportJson = "SELECT * FROM `$tableToShowJson`";
-    $toExportJson = $pdo->query($queryToExportJson);
-    $jsonArray = $toExportJson->fetchAll(PDO::FETCH_NUM);
-    $jsonname = "export.json";
-    $json = fopen($jsonname, "w+");
-    fwrite($json, json_encode($jsonArray));  
-    file_put_contents($json, $jsonArray);
+    switch($dataType) {
+        case "reviews" : {
+            getReviews($pdo);
+            break;
+        } 
+        case "order": {
+            getOrders($pdo);
+            break;
+        }
+        default: {
+            getReviews($pdo);
+            getOrders($pdo);
+            break;
+        }
+    }
 
 }  
-fclose($filename);
+
 //SWITCH CASE FORM WITH HIDDEN INPUT VALUE AND CALL OF FUNCTION FOR EACH CASE ///////////////////////////////////////////////////////////////////////////
 switch ($_POST["action"]) {
     case "init": {
@@ -186,9 +250,11 @@ switch ($_POST["action"]) {
             break;
         }
     case "export": {
-        getFile();
+        getFile($_POST['data_type']);
         break;
     }
+   
+    
         
 }
 ?>
@@ -216,9 +282,18 @@ switch ($_POST["action"]) {
     <main>
         <div class="container">
             <form action="index.php" method="POST">
-            <input type="hidden" name="action"  value="export">
+                <select name="data_type" class="form-select" id="data_type" aria-label="Default select example">
+                    <option selected>Cosa vuoi salvare</option>
+                    <option value="all">Tutto</option>
+                    <option value="reviews">Recensioni</option>
+                    <option value="order">Ordini</option>
+                    
+                </select>
+                <input type="hidden" name="action"  value="export">
             <button type="submit" class="btn mt-3 btn-primary">CREA CSV</button>
             </form>
+          
+        
             <form action="index.php" method="POST">
                 <input type="hidden" name="action" value="reservation">
                 <div class="mb-3 mt-5">
