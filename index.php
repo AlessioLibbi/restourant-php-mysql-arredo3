@@ -1,6 +1,7 @@
 <?php
+// READING ACTION VALOR ///////////////////////////////////////////////////
 $_POST['action'];
-
+// FUNCTION FOR GETTING DATABASE ROOT ///////////////////////////////////////////////////////
 function getPdo()
 {
     $pdo = null;
@@ -15,6 +16,7 @@ function getPdo()
     };
     return $pdo;
 }
+// FUNCTION FOR CREATE FIRST TABLE AND POPULATE ///////////////////////////////////////////////////////
 function init()
 {
     $pdo = getPdo();
@@ -110,7 +112,7 @@ function init()
     }
 }
 
-
+//ADD VALUES INTO DB TABLES WITH EASY QUESRY ////////////////////////////////////////////////////
 
 function reservation()
 {
@@ -128,7 +130,48 @@ function vote()
     $get_comment = $_POST['comment'];
     $comment_into_db = "INSERT INTO votes(client_name, vote, comment) VALUES ( '$get_recens_name' , $get_vote , '$get_comment');";
     getPdo()->exec($comment_into_db);
+    
 }
+//FUNCTION FOR WRITE ON DIFFERERNT FILE CSV /// JSON
+function getFile() {
+
+
+    // CSV STAMP ON FILE //////////////////////////////////////////////////////////////////////
+    $pdo = getPdo();
+    $tableToShow = "votes";
+    $filename = "export.csv";
+    $file = fopen($filename, "w+");
+    $queryToExport = "SELECT * FROM `$tableToShow`";
+    $toExport = $pdo->query($queryToExport);
+    $col = $toExport->columnCount();
+    $row = $toExport->rowCount();
+    
+    $gotdata = $toExport->fetchAll();  
+    var_dump($gotdata);
+    $headerCSV = array('id', 'client_name', 'vote', 'comment');
+    fputcsv($file, $headerCSV);
+    for($i = 0 ; $i < $row; $i++) {
+        $smelted =array();
+       for($j = 0; $j < $col; $j++) {
+        $smelted[] = $gotdata[$i][$j];
+       }
+       fputcsv($file, $smelted);
+    }   
+
+
+    //JSON STAMP ON FILE //////////////////////////////////////////////////////////////////
+    $tableToShowJson = "prenotations";
+    $queryToExportJson = "SELECT * FROM `$tableToShowJson`";
+    $toExportJson = $pdo->query($queryToExportJson);
+    $jsonArray = $toExportJson->fetchAll(PDO::FETCH_NUM);
+    $jsonname = "export.json";
+    $json = fopen($jsonname, "w+");
+    fwrite($json, json_encode($jsonArray));  
+    file_put_contents($json, $jsonArray);
+
+}  
+fclose($filename);
+//SWITCH CASE FORM WITH HIDDEN INPUT VALUE AND CALL OF FUNCTION FOR EACH CASE ///////////////////////////////////////////////////////////////////////////
 switch ($_POST["action"]) {
     case "init": {
             init();
@@ -142,6 +185,11 @@ switch ($_POST["action"]) {
             vote();
             break;
         }
+    case "export": {
+        getFile();
+        break;
+    }
+        
 }
 ?>
 <!DOCTYPE html>
@@ -167,6 +215,10 @@ switch ($_POST["action"]) {
     </header>
     <main>
         <div class="container">
+            <form action="index.php" method="POST">
+            <input type="hidden" name="action"  value="export">
+            <button type="submit" class="btn mt-3 btn-primary">CREA CSV</button>
+            </form>
             <form action="index.php" method="POST">
                 <input type="hidden" name="action" value="reservation">
                 <div class="mb-3 mt-5">
@@ -205,8 +257,9 @@ switch ($_POST["action"]) {
                 </div>
                 <button type="submit" class="btn mt-3 btn-primary">Submit</button>
             </form>
+            
         </div>
     </main>
 </body>
 
-</html>
+</html> 
